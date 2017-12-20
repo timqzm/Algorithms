@@ -43,7 +43,7 @@ if __name__ == "__main__":
 
         file = sys.argv[1]
     else:
-        file="C:\\Users\\dako0915\\Desktop\\graphs\\MANN_a9.clq.txt"
+        file="C:\\Users\\Daniil\\Desktop\\graphs\\MANN_a9.clq.txt"
         timeout = 3000
     end_time = time.time() + timeout
     with open(file, 'r') as read_file:
