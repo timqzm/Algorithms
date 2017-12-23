@@ -47,8 +47,8 @@ class Painter:
         # else:
         ind_sets = []
         for color in range(max(coloring)):
-            if coloring.count(color) < 2:
-                continue
+            #if coloring.count(color) < 2:
+                #continue
             ind_sets.append([index for index, value in enumerate(coloring) if value == color])
         return ind_sets
 
