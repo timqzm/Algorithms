@@ -74,6 +74,7 @@ class BranchAndCut:
                                  senses=['L'] * len(constraints),
                                  rhs=[1.0] * len(constraints),
                                  names=['constr{0}'.format(x) for x in range(len(constraints))])
+        print(constraints)
         return c
 
     def get_branching_variable(self, values):
@@ -136,6 +137,7 @@ if __name__ == "__main__":
         timeout = 3000
     end_time = time.time() + timeout
 
-    max_clique = BranchAndCut(readGraphFromFile(file)).findMaxClique()
+    graph, degrees = readGraphFromFile(file)
+    max_clique = BranchAndCut(graph, degrees).findMaxClique()
 
     print(str(timeout - (end_time - time.time())) + " " + str(len(max_clique)))
