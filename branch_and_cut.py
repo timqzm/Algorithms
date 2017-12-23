@@ -121,6 +121,7 @@ class BranchAndCut:
                 check_result = self.check_clique(possible_clique)
                 if check_result is True: # if clique
                     if self.current_max_clique_size < len(solution_values):
+                        self.current_max_clique_size = len(solution_values)
                         return possible_clique
                     return list()
                 else:
