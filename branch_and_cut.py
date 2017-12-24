@@ -47,8 +47,8 @@ class Painter:
         # else:
         ind_sets = []
         for color in range(max(coloring)):
-            #if coloring.count(color) < 2:
-                #continue
+            # if coloring.count(color) < 2:
+            # continue
             ind_sets.append([index for index, value in enumerate(coloring) if value == color])
         return ind_sets
 
@@ -60,40 +60,54 @@ class BranchAndCut:
         self.graph_size = len(graph[0])
         self.current_max_clique_size = 0
         self.constraints = []
+        self.constraints_count = 0
 
     def initializeCplex(self):
         c = cplex.Cplex()
+        c.set_log_stream(None)
+        c.set_error_stream(None)
+        c.set_warning_stream(None)
+        c.set_results_stream(None)
         c.objective.set_sense(c.objective.sense.maximize)
-        c.variables.add(obj=[1.0] * self.graph_size, ub=[1.0] * self.graph_size,
+        c.variables.add(obj=[1.0] * self.graph_size,
+                        ub=[1] * self.graph_size,
                         names=['x{0}'.format(x) for x in range(self.graph_size)],
                         types=[c.variables.type.continuous] * self.graph_size)
 
-        for ind_set in Painter(self.graph, self.degrees).paintSetOfVertexes(range(self.graph_size)):
-            self.constraints.append([['x{0}'.format(x) for x in ind_set], [1.0] * len(ind_set)])
+        #ind_sets = Painter(self.graph, self.degrees).paintSetOfVertexes(range(self.graph_size))
+        ind_sets=Painter(self.graph, self.degrees).paintGraph()
+        self.constraints_count+=len(ind_sets)
+        len_ind_sets = 0
+        for ind_set in ind_sets:
+            len_ind_sets+=len(ind_set)
+            self.constraints.append([ind_set, [1.0] * len(ind_set)])
+        print(len_ind_sets)
         c.linear_constraints.add(lin_expr=self.constraints,
                                  senses=['L'] * len(self.constraints),
-                                 rhs=[1.0] * len(self.constraints),
-                                 names=['constr{0}'.format(x) for x in range(len(self.constraints))])
+                                 rhs=[1] * len(self.constraints),
+                                 names=['c{0}'.format(x) for x in range(len(self.constraints))])
         return c
 
     def get_branching_variable(self, values):
         max_ = 0
+        idx = 0
         for i, val in enumerate(values):
             if not val.is_integer() and val > max_:
                 max_ = val
+                idx = i
         if max_ != 0:
-            return max_
+            return idx
         else:
             return None
 
     def check_clique(self, values):
         values = sorted(values)
+        missed_edges = list()
         for v1 in values:
             for v2 in values[values.index(v1) + 1:]:
                 if self.graph[v1, v2] == 0:
                     return tuple([v1, v2])
-                else:
-                    return True
+        return True
 
     def add_constraint(self, problem, bvars, rhs, type_eq):
         if len(bvars) == 1:
@@ -110,18 +124,23 @@ class BranchAndCut:
 
     def branching(self, problem):
         try:
+            problem.set_log_stream(None)
+            problem.set_error_stream(None)
+            problem.set_warning_stream(None)
+            problem.set_results_stream(None)
             problem.solve()
             solution_values = problem.solution.get_values()
         except cplex.exceptions.CplexSolverError:
             return list()
         if sum(solution_values) > self.current_max_clique_size:
             branching_variable = self.get_branching_variable(solution_values)
-            if branching_variable is None: #all solution_values have int type
-                possible_clique= list(index for index, value in enumerate(solution_values) if value == 1.0)
+            if branching_variable is None:  # all solution_values have int type
+                possible_clique = list(index for index, value in enumerate(solution_values) if value == 1)
+                # print('objective', sum(possible_clique))
                 check_result = self.check_clique(possible_clique)
-                if check_result is True: # if clique
-                    if self.current_max_clique_size < len(solution_values):
-                        self.current_max_clique_size = len(solution_values)
+                if check_result == True:  # if clique
+                    if self.current_max_clique_size < len(possible_clique):
+                        self.current_max_clique_size = len(possible_clique)
                         return possible_clique
                     return list()
                 else:
@@ -145,8 +164,9 @@ def readGraphFromFile(file_name):
                 degrees = np.zeros(num_nodes)
             if line[0] == 'e':
                 edge = tuple(int(x) - 1 for x in line[1:].split())
-                graph[edge] = 1
+                # graph[edge] = 1
                 graph[edge[1]][edge[0]] = 1
+                graph[edge[0]][edge[1]] = 1
                 degrees[edge[0]] += 1
                 degrees[edge[1]] += 1
 
@@ -158,11 +178,12 @@ if __name__ == "__main__":
         timeout = int(sys.argv[2])
         file = sys.argv[1]
     else:
-        file = "C:\\Users\\Daniil\\Desktop\\graphs\\johnson16-2-4.clq.txt"
+        file = "C:\\Users\\Daniil\\Desktop\\graphs\\hamming6-4.clq.txt"
+        # file = "C:\\Users\\shimk\\OneDrive\\Documents\\MAXCLIQUE_3\\clq\\hamming6-4.clq.txt"
         timeout = 3000
     end_time = time.time() + timeout
 
     graph, degrees = readGraphFromFile(file)
     max_clique = BranchAndCut(graph, degrees).findMaxClique()
 
-    print(str(timeout - (end_time - time.time())) + " " + str(len(max_clique)))
+    print(str(timeout - (end_time - time.time())) + " " + str(len(max_clique)), max_clique)
