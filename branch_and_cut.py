@@ -58,9 +58,12 @@ class BranchAndCut:
         self.graph = graph
         self.degrees = degrees
         self.graph_size = len(graph[0])
+        # print("GRAPH SIZE", self.graph_size)
         self.current_max_clique_size = 0
         self.constraints = []
+        self.constraints_uselessness = []
         self.constraints_count = 0
+        self.m = 0
 
     def initializeCplex(self):
         c = cplex.Cplex()
@@ -82,6 +85,10 @@ class BranchAndCut:
             len_ind_sets+=len(ind_set)
             self.constraints.append([ind_set, [1.0] * len(ind_set)])
         print(len_ind_sets)
+        print(ind_sets)
+        print("ind sets count", len(ind_sets))
+        self.m = len(ind_sets)
+        self.constraints_uselessness = [0] * len(self.constraints)
         c.linear_constraints.add(lin_expr=self.constraints,
                                  senses=['L'] * len(self.constraints),
                                  rhs=[1] * len(self.constraints),
@@ -110,11 +117,16 @@ class BranchAndCut:
         return True
 
     def add_constraint(self, problem, bvars, rhs, type_eq):
+        #print(problem.linear_constraints)
         if len(bvars) == 1:
+            #print("addin 1 BVAR cons")
+            self.constraints_uselessness.append(0)
             problem.linear_constraints.add(lin_expr=[[bvars, [1.0]]], senses=[type_eq], rhs=[rhs],
                                            names=['bvar_{0}_{1}'.format(bvars, rhs)])
         else:
+            #print("addin 1 cons")
             self.constraints.append([['x{0}'.format(x) for x in bvars], [1.0] * len(bvars)])
+            self.constraints_uselessness.append(0)
             problem.linear_constraints.add(lin_expr=[[['x{0}'.format(x) for x in bvars], [1.0] * len(bvars)]],
                                            senses=['L'],
                                            rhs=[1.0],
@@ -130,6 +142,35 @@ class BranchAndCut:
             problem.set_results_stream(None)
             problem.solve()
             solution_values = problem.solution.get_values()
+
+            slacks = problem.solution.get_linear_slacks()
+
+            for i in range(len(slacks)):
+                if slacks[i] == 0:
+                    # print("inc uslss", i)
+                    self.constraints_uselessness[i] += 1
+                    # if self.constraints_uselessness[i] > self.graph_size ** 1.8:
+                    # inds.append(i)
+
+            if len(slacks) > self.m and max(self.constraints_uselessness) > self.graph_size:
+                d = len(slacks) - self.m
+                print("too many slacks!", len(slacks), "diff", d)
+                for i in range(d):
+                    j = self.constraints_uselessness.index(max(self.constraints_uselessness))
+                    del self.constraints_uselessness[j]
+                    problem.linear_constraints.delete(j)
+
+            # print("slacks:", slacks)
+
+            # inds = []
+
+            # #print("uslssnss:", self.constraints_uselessness)
+
+            # if len(inds) > 0:
+            #     print("DELETE!!!", inds)
+            #     self.constraints_uselessness = [x for i, x in enumerate(self.constraints_uselessness) if i not in inds]
+            #     problem.linear_constraints.delete(inds)
+
         except cplex.exceptions.CplexSolverError:
             return list()
         if sum(solution_values) > self.current_max_clique_size:
@@ -178,7 +219,11 @@ if __name__ == "__main__":
         timeout = int(sys.argv[2])
         file = sys.argv[1]
     else:
-        file = "C:\\Users\\Daniil\\Desktop\\graphs\\hamming6-4.clq.txt"
+        file = "U:\\clq\\myciel3.col.txt"
+        # file = "U:\\clq\\johnson8-2-4.clq.txt"
+        # file = "U:\\clq\\hamming6-4.clq.txt"
+
+        # file = "C:\\Users\\Daniil\\Desktop\\graphs\\hamming6-4.clq.txt"
         # file = "C:\\Users\\shimk\\OneDrive\\Documents\\MAXCLIQUE_3\\clq\\hamming6-4.clq.txt"
         timeout = 3000
     end_time = time.time() + timeout
